@@ -1,5 +1,10 @@
 # playwright-spatial-layout-mcp 🐸📐
 
+[![npm version](https://img.shields.io/npm/v/playwright-spatial-layout-mcp.svg)](https://www.npmjs.com/package/playwright-spatial-layout-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/playwright-spatial-layout-mcp.svg)](https://www.npmjs.com/package/playwright-spatial-layout-mcp)
+[![CI](https://github.com/vola-trebla/playwright-spatial-layout-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vola-trebla/playwright-spatial-layout-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An MCP server that gives AI agents **geometric spatial awareness** of web page layouts using Playwright.
 
 AI agents can read the DOM and know a button exists — but they can't see that it's hidden under a sticky header, pushed off-screen by a broken CSS rule, or overlapping another element on mobile. This MCP fixes that by exposing real bounding box mathematics from a live browser.
