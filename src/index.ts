@@ -42,7 +42,7 @@ server.registerTool(
       "Returns the geometric position, size, z-index, and viewport visibility for one or more DOM elements. " +
       "Use to answer: where exactly on screen is this element? Is it visible? Is it off-screen?",
     inputSchema: {
-      url: z.string().describe("URL of the page to analyze"),
+      url: z.string().url().describe("URL of the page to analyze"),
       selectors: z
         .array(z.string())
         .min(1)
@@ -68,7 +68,7 @@ server.registerTool(
       "Checks if one element physically overlaps another by computing the intersection of their bounding boxes. " +
       "Use to answer: is this button hidden under a sticky header? Does the cookie banner block the CTA?",
     inputSchema: {
-      url: z.string().describe("URL of the page to analyze"),
+      url: z.string().url().describe("URL of the page to analyze"),
       target_selector: z.string().describe("The element that might be occluded (e.g., the button)"),
       overlay_selector: z
         .string()
@@ -158,15 +158,12 @@ server.registerTool(
   }
 );
 
-process.on("SIGINT", async () => {
+const shutdown = async () => {
   await closeBrowser();
   process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-  await closeBrowser();
-  process.exit(0);
-});
+};
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

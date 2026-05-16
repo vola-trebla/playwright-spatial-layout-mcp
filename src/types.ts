@@ -35,11 +35,6 @@ export interface RuleResult {
   reason: string;
 }
 
-export interface ViewportSnapshot {
-  viewport: { width: number; height: number };
-  elements: ElementSpatialData[];
-}
-
 export interface ReflowResult {
   selector: string;
   snapshots: Array<{

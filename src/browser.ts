@@ -1,12 +1,12 @@
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 
-let browser: Browser | null = null;
+let browserPromise: Promise<Browser> | null = null;
 
 async function getBrowser(): Promise<Browser> {
-  if (!browser || !browser.isConnected()) {
-    browser = await chromium.launch({ headless: true });
-  }
-  return browser;
+  if (!browserPromise) browserPromise = chromium.launch({ headless: true });
+  const b = await browserPromise;
+  if (!b.isConnected()) browserPromise = chromium.launch({ headless: true });
+  return b;
 }
 
 export async function withPage<T>(
@@ -14,10 +14,10 @@ export async function withPage<T>(
   viewport: { width: number; height: number },
   fn: (page: Page) => Promise<T>
 ): Promise<T> {
-  const b = await getBrowser();
+  const browser = await getBrowser();
   let context: BrowserContext | null = null;
   try {
-    context = await b.newContext({ viewport });
+    context = await browser.newContext({ viewport });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
     return await fn(page);
@@ -27,8 +27,9 @@ export async function withPage<T>(
 }
 
 export async function closeBrowser(): Promise<void> {
-  if (browser) {
-    await browser.close();
-    browser = null;
+  if (browserPromise) {
+    const b = await browserPromise.catch(() => null);
+    await b?.close();
+    browserPromise = null;
   }
 }

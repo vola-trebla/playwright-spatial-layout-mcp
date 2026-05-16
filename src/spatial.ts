@@ -12,38 +12,61 @@ import { withPage } from "./browser.js";
 const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 
 async function getElementData(page: Page, selector: string): Promise<ElementSpatialData> {
-  const locator = page.locator(selector).first();
-  const box = await locator.boundingBox();
-  const zIndex = await locator
-    .evaluate((el) => window.getComputedStyle(el).zIndex)
-    .catch(() => "auto");
-  const isVisible = await locator.isVisible().catch(() => false);
+  const viewport = page.viewportSize()!;
 
-  let isInViewport = false;
-  if (box) {
-    const viewport = page.viewportSize() ?? DEFAULT_VIEWPORT;
-    isInViewport =
-      box.x < viewport.width &&
-      box.x + box.width > 0 &&
-      box.y < viewport.height &&
-      box.y + box.height > 0;
-  }
+  const data = await page
+    .evaluate(
+      ({ sel, vp }) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        const isHidden =
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          parseFloat(style.opacity) === 0;
+        const box =
+          isHidden || (rect.width === 0 && rect.height === 0)
+            ? null
+            : { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        return {
+          box,
+          z_index: style.zIndex,
+          is_visible: !isHidden,
+          is_in_viewport:
+            box !== null &&
+            box.x < vp.width &&
+            box.x + box.width > 0 &&
+            box.y < vp.height &&
+            box.y + box.height > 0,
+        };
+      },
+      { sel: selector, vp: viewport }
+    )
+    .catch(() => null);
 
   return {
     selector,
-    box,
-    z_index: zIndex,
-    is_visible: isVisible,
-    is_in_viewport: isInViewport,
+    box: data?.box ?? null,
+    z_index: data?.z_index ?? "auto",
+    is_visible: data?.is_visible ?? false,
+    is_in_viewport: data?.is_in_viewport ?? false,
   };
 }
 
-function computeIntersectionRatio(a: BoundingBox, b: BoundingBox): number {
+function intersectionGeometry(a: BoundingBox, b: BoundingBox): { area: number; ratio: number } {
   const xOverlap = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
   const yOverlap = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
-  const intersectionArea = xOverlap * yOverlap;
+  const area = xOverlap * yOverlap;
   const targetArea = a.width * a.height;
-  return targetArea > 0 ? Math.round((intersectionArea / targetArea) * 10000) / 10000 : 0;
+  return {
+    area: Math.round(area),
+    ratio: targetArea > 0 ? Math.round((area / targetArea) * 10000) / 10000 : 0,
+  };
+}
+
+function maxDelta(values: number[]): number {
+  return values.length > 1 ? Math.round(Math.max(...values) - Math.min(...values)) : 0;
 }
 
 function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | null): RuleResult {
@@ -92,24 +115,22 @@ function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | nu
             ? `'${rule.element_a}' top (${a.y}px) is below '${rule.element_b}' bottom (${b.y + b.height}px)`
             : `'${rule.element_a}' top (${a.y}px) overlaps or is above '${rule.element_b}' bottom (${b.y + b.height}px)`,
       };
-    case "contains":
+    case "contains": {
+      const contained =
+        a.x <= b.x &&
+        a.y <= b.y &&
+        a.x + a.width >= b.x + b.width &&
+        a.y + a.height >= b.y + b.height;
       return {
         rule,
-        passed:
-          a.x <= b.x &&
-          a.y <= b.y &&
-          a.x + a.width >= b.x + b.width &&
-          a.y + a.height >= b.y + b.height,
-        reason:
-          a.x <= b.x &&
-          a.y <= b.y &&
-          a.x + a.width >= b.x + b.width &&
-          a.y + a.height >= b.y + b.height
-            ? `'${rule.element_a}' fully contains '${rule.element_b}'`
-            : `'${rule.element_a}' does not fully contain '${rule.element_b}'`,
+        passed: contained,
+        reason: contained
+          ? `'${rule.element_a}' fully contains '${rule.element_b}'`
+          : `'${rule.element_a}' does not fully contain '${rule.element_b}'`,
       };
+    }
     case "not_overlapping": {
-      const ratio = computeIntersectionRatio(a, b);
+      const { ratio } = intersectionGeometry(a, b);
       return {
         rule,
         passed: ratio === 0,
@@ -127,9 +148,9 @@ export async function extractBoundingBoxes(
   selectors: string[],
   viewport = DEFAULT_VIEWPORT
 ): Promise<ElementSpatialData[]> {
-  return withPage(url, viewport, async (page) => {
-    return Promise.all(selectors.map((s) => getElementData(page, s)));
-  });
+  return withPage(url, viewport, (page) =>
+    Promise.all(selectors.map((s) => getElementData(page, s)))
+  );
 }
 
 export async function detectOcclusion(
@@ -144,8 +165,8 @@ export async function detectOcclusion(
       getElementData(page, overlaySelector),
     ]);
 
-    const targetBox = targetData.box;
-    const overlayBox = overlayData.box;
+    const { box: targetBox } = targetData;
+    const { box: overlayBox } = overlayData;
 
     if (!targetBox || !overlayBox) {
       return {
@@ -159,18 +180,7 @@ export async function detectOcclusion(
       };
     }
 
-    const ratio = computeIntersectionRatio(targetBox, overlayBox);
-    const xOverlap = Math.max(
-      0,
-      Math.min(targetBox.x + targetBox.width, overlayBox.x + overlayBox.width) -
-        Math.max(targetBox.x, overlayBox.x)
-    );
-    const yOverlap = Math.max(
-      0,
-      Math.min(targetBox.y + targetBox.height, overlayBox.y + overlayBox.height) -
-        Math.max(targetBox.y, overlayBox.y)
-    );
-
+    const { area, ratio } = intersectionGeometry(targetBox, overlayBox);
     return {
       target: targetSelector,
       overlay: overlaySelector,
@@ -178,7 +188,7 @@ export async function detectOcclusion(
       overlay_box: overlayBox,
       is_occluded: ratio > 0,
       intersection_ratio: ratio,
-      occluded_area_px: Math.round(xOverlap * yOverlap),
+      occluded_area_px: area,
     };
   });
 }
@@ -198,11 +208,13 @@ export async function verifySpatialRelationships(
       })
     );
 
-    const results = rules.map((rule) => {
-      const a = dataMap.get(rule.element_a)?.box ?? null;
-      const b = dataMap.get(rule.element_b)?.box ?? null;
-      return applyRule(rule, a, b);
-    });
+    const results = rules.map((rule) =>
+      applyRule(
+        rule,
+        dataMap.get(rule.element_a)?.box ?? null,
+        dataMap.get(rule.element_b)?.box ?? null
+      )
+    );
 
     return { passed: results.every((r) => r.passed), results };
   });
@@ -213,17 +225,14 @@ export async function computeViewportReflow(
   selectors: string[],
   viewports: Array<{ width: number; height: number }>
 ): Promise<ReflowResult[]> {
-  const snapshots: Array<{
-    viewport: { width: number; height: number };
-    elements: ElementSpatialData[];
-  }> = [];
-
-  for (const viewport of viewports) {
-    const elements = await withPage(url, viewport, async (page) => {
-      return Promise.all(selectors.map((s) => getElementData(page, s)));
-    });
-    snapshots.push({ viewport, elements });
-  }
+  const snapshots = await Promise.all(
+    viewports.map(async (viewport) => {
+      const elements = await withPage(url, viewport, (page) =>
+        Promise.all(selectors.map((s) => getElementData(page, s)))
+      );
+      return { viewport, elements };
+    })
+  );
 
   return selectors.map((selector) => {
     const boxes = snapshots.map((snap) => ({
@@ -231,34 +240,20 @@ export async function computeViewportReflow(
       box: snap.elements.find((e) => e.selector === selector)?.box ?? null,
     }));
 
-    const validBoxes = boxes.filter((b) => b.box !== null).map((b) => b.box!);
-
-    const deltaX =
-      validBoxes.length > 1
-        ? Math.max(...validBoxes.map((b) => b.x)) - Math.min(...validBoxes.map((b) => b.x))
-        : 0;
-    const deltaY =
-      validBoxes.length > 1
-        ? Math.max(...validBoxes.map((b) => b.y)) - Math.min(...validBoxes.map((b) => b.y))
-        : 0;
-    const deltaW =
-      validBoxes.length > 1
-        ? Math.max(...validBoxes.map((b) => b.width)) - Math.min(...validBoxes.map((b) => b.width))
-        : 0;
-    const deltaH =
-      validBoxes.length > 1
-        ? Math.max(...validBoxes.map((b) => b.height)) -
-          Math.min(...validBoxes.map((b) => b.height))
-        : 0;
+    const validBoxes = boxes.map((b) => b.box).filter((b): b is BoundingBox => b !== null);
 
     return {
       selector,
       snapshots: boxes,
-      shifted: deltaX > 0 || deltaY > 0 || deltaW > 0 || deltaH > 0,
-      max_delta_x: Math.round(deltaX),
-      max_delta_y: Math.round(deltaY),
-      max_delta_width: Math.round(deltaW),
-      max_delta_height: Math.round(deltaH),
+      shifted:
+        maxDelta(validBoxes.map((b) => b.x)) > 0 ||
+        maxDelta(validBoxes.map((b) => b.y)) > 0 ||
+        maxDelta(validBoxes.map((b) => b.width)) > 0 ||
+        maxDelta(validBoxes.map((b) => b.height)) > 0,
+      max_delta_x: maxDelta(validBoxes.map((b) => b.x)),
+      max_delta_y: maxDelta(validBoxes.map((b) => b.y)),
+      max_delta_width: maxDelta(validBoxes.map((b) => b.width)),
+      max_delta_height: maxDelta(validBoxes.map((b) => b.height)),
     };
   });
 }
