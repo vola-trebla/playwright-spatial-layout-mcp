@@ -1,6 +1,6 @@
 {
   "name": "playwright-spatial-layout-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server that gives AI agents geometric spatial awareness of web page layouts using Playwright",
   "type": "module",
   "main": "dist/index.js",
