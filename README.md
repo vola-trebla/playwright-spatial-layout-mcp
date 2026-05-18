@@ -15,7 +15,7 @@ AI agents can read the DOM and know a button exists — but they can't see that 
 
 When an AI agent analyzes a Playwright test failure, it reads the accessibility tree:
 
-> *"The Submit button exists in the DOM. It has role=button. It is visible."*
+> _"The Submit button exists in the DOM. It has role=button. It is visible."_
 
 What it **cannot** see:
 
@@ -167,13 +167,13 @@ npx playwright install chromium
 
 ## 💡 Example Agent Prompts
 
-> *"Check if the cookie banner is blocking the checkout button on mobile (375px viewport)"*
+> _"Check if the cookie banner is blocking the checkout button on mobile (375px viewport)"_
 
-> *"Verify that the navigation is above the hero section and the sidebar doesn't overlap the main content"*
+> _"Verify that the navigation is above the hero section and the sidebar doesn't overlap the main content"_
 
-> *"Show me which elements shift the most when resizing from desktop to mobile"*
+> _"Show me which elements shift the most when resizing from desktop to mobile"_
 
-> *"Is the promotional modal covering the primary CTA on iPad viewport?"*
+> _"Is the promotional modal covering the primary CTA on iPad viewport?"_
 
 ---
 
