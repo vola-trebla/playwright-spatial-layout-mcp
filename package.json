@@ -53,5 +53,10 @@
     "src/**/*.ts": [
       "eslint --fix"
     ]
+  },
+  "mcpName": "io.github.vola-trebla/playwright-spatial-layout-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vola-trebla/playwright-spatial-layout-mcp.git"
   }
 }

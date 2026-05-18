@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.vola-trebla/playwright-spatial-layout-mcp",
+  "description": "MCP server that gives AI agents geometric spatial awareness of web page layouts using Playwright",
+  "repository": {
+    "url": "https://github.com/vola-trebla/playwright-spatial-layout-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "playwright-spatial-layout-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
