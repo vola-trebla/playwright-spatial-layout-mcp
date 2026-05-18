@@ -24,7 +24,7 @@ export interface OcclusionResult {
 }
 
 export interface SpatialRule {
-  type: "left_of" | "right_of" | "above" | "below" | "contains" | "not_overlapping";
+  type: 'left_of' | 'right_of' | 'above' | 'below' | 'contains' | 'not_overlapping';
   element_a: string;
   element_b: string;
 }

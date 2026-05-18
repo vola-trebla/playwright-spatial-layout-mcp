@@ -1,4 +1,4 @@
-import { Page } from "playwright";
+import { Page } from 'playwright';
 import {
   BoundingBox,
   ElementSpatialData,
@@ -6,8 +6,8 @@ import {
   SpatialRule,
   RuleResult,
   ReflowResult,
-} from "./types.js";
-import { withPage } from "./browser.js";
+} from './types.js';
+import { withPage } from './browser.js';
 
 const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 
@@ -22,8 +22,8 @@ async function getElementData(page: Page, selector: string): Promise<ElementSpat
         const rect = el.getBoundingClientRect();
         const style = window.getComputedStyle(el);
         const isHidden =
-          style.display === "none" ||
-          style.visibility === "hidden" ||
+          style.display === 'none' ||
+          style.visibility === 'hidden' ||
           parseFloat(style.opacity) === 0;
         const box =
           isHidden || (rect.width === 0 && rect.height === 0)
@@ -48,7 +48,7 @@ async function getElementData(page: Page, selector: string): Promise<ElementSpat
   return {
     selector,
     box: data?.box ?? null,
-    z_index: data?.z_index ?? "auto",
+    z_index: data?.z_index ?? 'auto',
     is_visible: data?.is_visible ?? false,
     is_in_viewport: data?.is_in_viewport ?? false,
   };
@@ -79,7 +79,7 @@ function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | nu
   }
 
   switch (rule.type) {
-    case "left_of":
+    case 'left_of':
       return {
         rule,
         passed: a.x + a.width <= b.x,
@@ -88,7 +88,7 @@ function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | nu
             ? `'${rule.element_a}' right edge (${a.x + a.width}px) is left of '${rule.element_b}' left edge (${b.x}px)`
             : `'${rule.element_a}' right edge (${a.x + a.width}px) overlaps or is right of '${rule.element_b}' left edge (${b.x}px)`,
       };
-    case "right_of":
+    case 'right_of':
       return {
         rule,
         passed: a.x >= b.x + b.width,
@@ -97,7 +97,7 @@ function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | nu
             ? `'${rule.element_a}' left edge (${a.x}px) is right of '${rule.element_b}' right edge (${b.x + b.width}px)`
             : `'${rule.element_a}' left edge (${a.x}px) overlaps or is left of '${rule.element_b}' right edge (${b.x + b.width}px)`,
       };
-    case "above":
+    case 'above':
       return {
         rule,
         passed: a.y + a.height <= b.y,
@@ -106,7 +106,7 @@ function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | nu
             ? `'${rule.element_a}' bottom (${a.y + a.height}px) is above '${rule.element_b}' top (${b.y}px)`
             : `'${rule.element_a}' bottom (${a.y + a.height}px) overlaps or is below '${rule.element_b}' top (${b.y}px)`,
       };
-    case "below":
+    case 'below':
       return {
         rule,
         passed: a.y >= b.y + b.height,
@@ -115,7 +115,7 @@ function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | nu
             ? `'${rule.element_a}' top (${a.y}px) is below '${rule.element_b}' bottom (${b.y + b.height}px)`
             : `'${rule.element_a}' top (${a.y}px) overlaps or is above '${rule.element_b}' bottom (${b.y + b.height}px)`,
       };
-    case "contains": {
+    case 'contains': {
       const contained =
         a.x <= b.x &&
         a.y <= b.y &&
@@ -129,7 +129,7 @@ function applyRule(rule: SpatialRule, a: BoundingBox | null, b: BoundingBox | nu
           : `'${rule.element_a}' does not fully contain '${rule.element_b}'`,
       };
     }
-    case "not_overlapping": {
+    case 'not_overlapping': {
       const { ratio } = intersectionGeometry(a, b);
       return {
         rule,
