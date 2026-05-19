@@ -6,6 +6,7 @@ import {
   SpatialRule,
   RuleResult,
   ReflowResult,
+  ReflowSnapshot,
 } from './types.js';
 import { withPage } from './browser.js';
 
@@ -29,6 +30,15 @@ async function getElementData(page: Page, selector: string): Promise<ElementSpat
           isHidden || (rect.width === 0 && rect.height === 0)
             ? null
             : { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        const parent = (el as HTMLElement).offsetParent;
+        let posRelToParent: { x: number; y: number } | null = null;
+        if (box && parent) {
+          const parentRect = parent.getBoundingClientRect();
+          posRelToParent = {
+            x: Math.round(rect.x - parentRect.x),
+            y: Math.round(rect.y - parentRect.y),
+          };
+        }
         return {
           box,
           z_index: style.zIndex,
@@ -39,6 +49,7 @@ async function getElementData(page: Page, selector: string): Promise<ElementSpat
             box.x + box.width > 0 &&
             box.y < vp.height &&
             box.y + box.height > 0,
+          position_relative_to_parent: posRelToParent,
         };
       },
       { sel: selector, vp: viewport }
@@ -51,6 +62,7 @@ async function getElementData(page: Page, selector: string): Promise<ElementSpat
     z_index: data?.z_index ?? 'auto',
     is_visible: data?.is_visible ?? false,
     is_in_viewport: data?.is_in_viewport ?? false,
+    position_relative_to_parent: data?.position_relative_to_parent ?? null,
   };
 }
 
@@ -235,10 +247,15 @@ export async function computeViewportReflow(
   );
 
   return selectors.map((selector) => {
-    const boxes = snapshots.map((snap) => ({
-      viewport: snap.viewport,
-      box: snap.elements.find((e) => e.selector === selector)?.box ?? null,
-    }));
+    const boxes: ReflowSnapshot[] = snapshots.map((snap) => {
+      const el = snap.elements.find((e) => e.selector === selector);
+      return {
+        viewport: snap.viewport,
+        box: el?.box ?? null,
+        is_visible: el?.is_visible ?? false,
+        position_relative_to_parent: el?.position_relative_to_parent ?? null,
+      };
+    });
 
     const validBoxes = boxes.map((b) => b.box).filter((b): b is BoundingBox => b !== null);
 
