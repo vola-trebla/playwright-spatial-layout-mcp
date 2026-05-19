@@ -7,6 +7,7 @@ import {
   RuleResult,
   ReflowResult,
   ReflowSnapshot,
+  StackingContextResult,
 } from './types.js';
 import { withPage } from './browser.js';
 import { parseColor, buildContrastResult, ContrastResult } from './contrast.js';
@@ -332,5 +333,96 @@ export async function calculatePerceptualContrast(
     }
 
     return buildContrastResult(colors.fg, colors.bg, fg, bg);
+  });
+}
+
+export async function verifyStackingContext(
+  url: string,
+  selector: string,
+  viewport = DEFAULT_VIEWPORT
+): Promise<StackingContextResult> {
+  return withPage(url, viewport, async (page) => {
+    const result = await page
+      .evaluate((sel) => {
+        function getStackingTriggers(el: Element): string[] {
+          const s = window.getComputedStyle(el);
+          const triggers: string[] = [];
+          const position = s.position;
+          const isPositioned = position !== 'static';
+          const zIndex = s.zIndex;
+
+          if (isPositioned && zIndex !== 'auto') triggers.push(`z-index:${zIndex}`);
+          if (parseFloat(s.opacity) < 1) triggers.push(`opacity:${s.opacity}`);
+          if (s.transform !== 'none') triggers.push('transform');
+          if (s.filter !== 'none') triggers.push('filter');
+          if (s.isolation === 'isolate') triggers.push('isolation:isolate');
+          if (s.mixBlendMode !== 'normal') triggers.push(`mix-blend-mode:${s.mixBlendMode}`);
+          if (s.willChange && s.willChange !== 'auto') triggers.push(`will-change:${s.willChange}`);
+          if (s.clipPath !== 'none') triggers.push('clip-path');
+          if (s.perspective !== 'none') triggers.push('perspective');
+          if (s.contain === 'layout' || s.contain === 'paint' || s.contain === 'strict')
+            triggers.push(`contain:${s.contain}`);
+          if (position === 'fixed' || position === 'sticky') triggers.push(`position:${position}`);
+
+          return triggers;
+        }
+
+        function describeElement(el: Element): string {
+          const id = el.id ? `#${el.id}` : '';
+          const cls = el.classList.length
+            ? `.${Array.from(el.classList).slice(0, 2).join('.')}`
+            : '';
+          return `${el.tagName.toLowerCase()}${id}${cls}` || el.tagName.toLowerCase();
+        }
+
+        const target = document.querySelector(sel);
+        if (!target) return null;
+
+        const targetTriggers = getStackingTriggers(target);
+        const targetZIndex = window.getComputedStyle(target).zIndex;
+
+        // Walk ancestors to find all stacking contexts above this element
+        const ancestors: Array<{ selector_path: string; triggers: string[]; z_index: string }> = [];
+        let el: Element | null = target.parentElement;
+
+        while (el && el !== document.documentElement) {
+          const triggers = getStackingTriggers(el);
+          if (triggers.length > 0) {
+            ancestors.unshift({
+              selector_path: describeElement(el),
+              triggers,
+              z_index: window.getComputedStyle(el).zIndex,
+            });
+          }
+          el = el.parentElement;
+        }
+
+        // The effective z-index is only meaningful within the nearest stacking context
+        const nearestContext = ancestors[ancestors.length - 1];
+
+        return {
+          found: true,
+          creates_stacking_context: targetTriggers.length > 0,
+          context_triggers: targetTriggers,
+          effective_z_index: targetZIndex,
+          stacking_context_root: nearestContext ? nearestContext.selector_path : 'document',
+          ancestor_contexts: ancestors,
+        };
+      }, selector)
+      .catch(() => null);
+
+    if (!result) {
+      return {
+        selector,
+        found: false,
+        creates_stacking_context: false,
+        context_triggers: [],
+        effective_z_index: 'auto',
+        stacking_context_root: 'document',
+        ancestor_contexts: [],
+      };
+    }
+
+    return { selector, ...result };
   });
 }
