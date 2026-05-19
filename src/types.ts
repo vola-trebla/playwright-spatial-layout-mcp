@@ -55,3 +55,17 @@ export interface ReflowResult {
   max_delta_width: number;
   max_delta_height: number;
 }
+
+export interface StackingContextResult {
+  selector: string;
+  found: boolean;
+  creates_stacking_context: boolean;
+  context_triggers: string[];
+  effective_z_index: string;
+  stacking_context_root: string;
+  ancestor_contexts: Array<{
+    selector_path: string;
+    triggers: string[];
+    z_index: string;
+  }>;
+}

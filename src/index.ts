@@ -8,6 +8,7 @@ import {
   verifySpatialRelationships,
   computeViewportReflow,
   calculatePerceptualContrast,
+  verifyStackingContext,
 } from './spatial.js';
 import { closeBrowser } from './browser.js';
 
@@ -182,6 +183,29 @@ server.registerTool(
         background_selector,
         viewport
       );
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+);
+
+server.registerTool(
+  'verify_stacking_context',
+  {
+    description:
+      'Reveals the full CSS stacking context chain for an element — which ancestors create ' +
+      'new stacking contexts and why. Use to answer: why is my z-index:9999 element still ' +
+      'behind a modal? Does this element create its own stacking context?',
+    inputSchema: {
+      url: z.string().url().describe('URL of the page to analyze'),
+      selector: z.string().describe('CSS selector for the element to inspect'),
+      viewport: viewportSchema,
+    },
+  },
+  async ({ url, selector, viewport }) => {
+    try {
+      const result = await verifyStackingContext(url, selector, viewport);
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       return errorResponse(err);
