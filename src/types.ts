@@ -11,6 +11,7 @@ export interface ElementSpatialData {
   z_index: string;
   is_visible: boolean;
   is_in_viewport: boolean;
+  position_relative_to_parent: { x: number; y: number } | null;
 }
 
 export interface OcclusionResult {
@@ -35,12 +36,16 @@ export interface RuleResult {
   reason: string;
 }
 
+export interface ReflowSnapshot {
+  viewport: { width: number; height: number };
+  box: BoundingBox | null;
+  is_visible: boolean;
+  position_relative_to_parent: { x: number; y: number } | null;
+}
+
 export interface ReflowResult {
   selector: string;
-  snapshots: Array<{
-    viewport: { width: number; height: number };
-    box: BoundingBox | null;
-  }>;
+  snapshots: ReflowSnapshot[];
   shifted: boolean;
   max_delta_x: number;
   max_delta_y: number;
