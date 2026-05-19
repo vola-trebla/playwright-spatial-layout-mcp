@@ -9,6 +9,7 @@ import {
   ReflowSnapshot,
 } from './types.js';
 import { withPage } from './browser.js';
+import { parseColor, buildContrastResult, ContrastResult } from './contrast.js';
 
 const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 
@@ -292,5 +293,44 @@ export async function computeViewportReflow(
       max_delta_width: maxDelta(validBoxes.map((b) => b.width)),
       max_delta_height: maxDelta(validBoxes.map((b) => b.height)),
     };
+  });
+}
+
+export async function calculatePerceptualContrast(
+  url: string,
+  textSelector: string,
+  backgroundSelector: string,
+  viewport = DEFAULT_VIEWPORT
+): Promise<ContrastResult> {
+  return withPage(url, viewport, async (page) => {
+    const colors = await page
+      .evaluate(
+        ({ textSel, bgSel }) => {
+          const textEl = document.querySelector(textSel);
+          const bgEl = document.querySelector(bgSel);
+          if (!textEl || !bgEl) return null;
+          const textStyle = window.getComputedStyle(textEl);
+          const bgStyle = window.getComputedStyle(bgEl);
+          return {
+            fg: textStyle.color,
+            bg: bgStyle.backgroundColor,
+          };
+        },
+        { textSel: textSelector, bgSel: backgroundSelector }
+      )
+      .catch(() => null);
+
+    if (!colors) {
+      throw new Error(`Could not resolve elements: '${textSelector}' or '${backgroundSelector}'`);
+    }
+
+    const fg = parseColor(colors.fg);
+    const bg = parseColor(colors.bg);
+
+    if (!fg || !bg) {
+      throw new Error(`Could not parse colors — fg: '${colors.fg}', bg: '${colors.bg}'`);
+    }
+
+    return buildContrastResult(colors.fg, colors.bg, fg, bg);
   });
 }

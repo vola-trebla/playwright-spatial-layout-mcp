@@ -7,6 +7,7 @@ import {
   detectOcclusion,
   verifySpatialRelationships,
   computeViewportReflow,
+  calculatePerceptualContrast,
 } from './spatial.js';
 import { closeBrowser } from './browser.js';
 
@@ -151,6 +152,36 @@ server.registerTool(
   async ({ url, selectors, viewports }) => {
     try {
       const result = await computeViewportReflow(url, selectors, viewports);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+);
+
+server.registerTool(
+  'calculate_perceptual_contrast',
+  {
+    description:
+      'Measures color contrast between a text element and its background using both WCAG 2.x ' +
+      'and APCA (WCAG 3.0 draft) formulas simultaneously. ' +
+      'Use to answer: does this text pass accessibility contrast requirements? ' +
+      'Is it actually readable even if it technically passes the legacy formula?',
+    inputSchema: {
+      url: z.string().url().describe('URL of the page to analyze'),
+      text_selector: z.string().describe('CSS selector for the text element'),
+      background_selector: z.string().describe('CSS selector for the background element'),
+      viewport: viewportSchema,
+    },
+  },
+  async ({ url, text_selector, background_selector, viewport }) => {
+    try {
+      const result = await calculatePerceptualContrast(
+        url,
+        text_selector,
+        background_selector,
+        viewport
+      );
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       return errorResponse(err);
