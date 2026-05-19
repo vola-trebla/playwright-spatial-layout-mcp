@@ -14,7 +14,7 @@ import { closeBrowser } from './browser.js';
 
 const server = new McpServer({
   name: 'playwright-spatial-layout-mcp',
-  version: '0.1.0',
+  version: '0.2.0',
 });
 
 const viewportSchema = z

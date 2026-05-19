@@ -6,12 +6,12 @@
     "url": "https://github.com/vola-trebla/playwright-spatial-layout-mcp",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "playwright-spatial-layout-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       }
