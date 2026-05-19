@@ -21,10 +21,9 @@ async function getElementData(page: Page, selector: string): Promise<ElementSpat
         if (!el) return null;
         const rect = el.getBoundingClientRect();
         const style = window.getComputedStyle(el);
-        const isHidden =
-          style.display === 'none' ||
-          style.visibility === 'hidden' ||
-          parseFloat(style.opacity) === 0;
+        // opacity:0 is intentionally excluded — Playwright considers it visible
+        // (occupies space, is in the a11y tree, can receive keyboard focus)
+        const isHidden = style.display === 'none' || style.visibility === 'hidden';
         const box =
           isHidden || (rect.width === 0 && rect.height === 0)
             ? null
@@ -160,13 +159,26 @@ export async function detectOcclusion(
   viewport = DEFAULT_VIEWPORT
 ): Promise<OcclusionResult> {
   return withPage(url, viewport, async (page) => {
-    const [targetData, overlayData] = await Promise.all([
+    const [targetData, overlayData, overlayInteraction] = await Promise.all([
       getElementData(page, targetSelector),
       getElementData(page, overlaySelector),
+      page
+        .evaluate((sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return null;
+          const style = window.getComputedStyle(el);
+          return {
+            pointer_events_active: style.pointerEvents !== 'none',
+            clip_path_applied: style.clipPath !== 'none',
+          };
+        }, overlaySelector)
+        .catch(() => null),
     ]);
 
     const { box: targetBox } = targetData;
     const { box: overlayBox } = overlayData;
+    const pointerEventsActive = overlayInteraction?.pointer_events_active ?? true;
+    const clipPathApplied = overlayInteraction?.clip_path_applied ?? false;
 
     if (!targetBox || !overlayBox) {
       return {
@@ -175,20 +187,28 @@ export async function detectOcclusion(
         target_box: targetBox,
         overlay_box: overlayBox,
         is_occluded: false,
+        functional_occlusion: false,
         intersection_ratio: 0,
         occluded_area_px: 0,
+        overlay_pointer_events_active: pointerEventsActive,
+        overlay_clip_path_applied: clipPathApplied,
       };
     }
 
     const { area, ratio } = intersectionGeometry(targetBox, overlayBox);
+    const isOccluded = ratio > 0;
     return {
       target: targetSelector,
       overlay: overlaySelector,
       target_box: targetBox,
       overlay_box: overlayBox,
-      is_occluded: ratio > 0,
+      is_occluded: isOccluded,
+      // true only when overlay geometrically overlaps AND can receive pointer events
+      functional_occlusion: isOccluded && pointerEventsActive,
       intersection_ratio: ratio,
       occluded_area_px: area,
+      overlay_pointer_events_active: pointerEventsActive,
+      overlay_clip_path_applied: clipPathApplied,
     };
   });
 }

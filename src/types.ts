@@ -19,8 +19,11 @@ export interface OcclusionResult {
   target_box: BoundingBox | null;
   overlay_box: BoundingBox | null;
   is_occluded: boolean;
+  functional_occlusion: boolean;
   intersection_ratio: number;
   occluded_area_px: number;
+  overlay_pointer_events_active: boolean;
+  overlay_clip_path_applied: boolean;
 }
 
 export interface SpatialRule {
